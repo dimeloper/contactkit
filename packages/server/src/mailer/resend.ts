@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import type { Mailer, MailOptions } from './index.js';
+import type { Mailer, MailInput } from './index.js';
 
 export class ResendMailer implements Mailer {
   private client: Resend;
@@ -8,17 +8,20 @@ export class ResendMailer implements Mailer {
     this.client = new Resend(apiKey);
   }
 
-  async send(options: MailOptions): Promise<void> {
-    const { error } = await this.client.emails.send({
-      from: options.from,
-      to: [options.to],
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
+  async send(input: MailInput): Promise<{ id?: string }> {
+    const { data, error } = await this.client.emails.send({
+      from: input.from,
+      to: [input.to],
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      reply_to: input.replyTo,
     });
 
     if (error) {
       throw new Error(`Resend error: ${error.message}`);
     }
+
+    return { id: data?.id };
   }
 }

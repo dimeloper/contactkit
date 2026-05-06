@@ -1,23 +1,40 @@
-FROM node:20-alpine AS base
-RUN npm install -g pnpm
+# ── Stage 1: deps ─────────────────────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
-# Copy workspace manifests
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/server/package.json ./packages/server/
 
-# Install production deps only
 RUN pnpm install --frozen-lockfile --filter @contactkit/server
 
-# Copy source
+# ── Stage 2: build ────────────────────────────────────────────────────────────
+FROM deps AS build
+
 COPY tsconfig.base.json ./
 COPY packages/server ./packages/server
 
-# Build
 RUN pnpm --filter @contactkit/server build
 
+# Prune dev deps
+RUN pnpm --filter @contactkit/server --prod deploy /app/pruned
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS runtime
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=build /app/pruned ./
+COPY --from=build /app/packages/server/dist ./dist
+
+USER appuser
+
 EXPOSE 3000
+
 ENV NODE_ENV=production
 
-CMD ["node", "packages/server/dist/server.js"]
+CMD ["node", "dist/server.js"]
