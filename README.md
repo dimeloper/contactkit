@@ -121,8 +121,8 @@ curl -s https://your-app.up.railway.app/health
     name: 'Jane',
     email: 'jane@example.com',
     message: 'Hello!',
-    subject: 'Inquiry',        // optional
-    turnstileToken: '...',     // optional
+    subject: 'Inquiry', // optional
+    turnstileToken: '...', // optional
   });
 </script>
 ```

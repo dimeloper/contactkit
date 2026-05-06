@@ -17,10 +17,7 @@ export class SmtpMailer implements Mailer {
       host: config.host,
       port: config.port,
       secure: config.secure,
-      auth:
-        config.user && config.pass
-          ? { user: config.user, pass: config.pass }
-          : undefined,
+      auth: config.user && config.pass ? { user: config.user, pass: config.pass } : undefined,
     });
   }
 

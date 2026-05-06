@@ -101,9 +101,7 @@ export async function contactRoutes(
         id = result.id ?? randomUUID();
       } catch (err) {
         app.log.error({ err }, 'Failed to send contact email');
-        return reply
-          .status(500)
-          .send({ error: 'Failed to send message. Please try again later.' });
+        return reply.status(500).send({ error: 'Failed to send message. Please try again later.' });
       }
 
       return reply.status(200).send({ ok: true, id });

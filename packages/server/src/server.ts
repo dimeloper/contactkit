@@ -11,18 +11,16 @@ import { ResendMailer } from './mailer/resend.js';
 import { SmtpMailer } from './mailer/smtp.js';
 import type { Mailer } from './mailer/index.js';
 
-const pkg = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf-8'),
-) as { name: string; version: string };
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8')) as {
+  name: string;
+  version: string;
+};
 
 export async function buildApp(overrideEnv?: NodeJS.ProcessEnv) {
   const env = parseEnv(overrideEnv ?? process.env);
 
   const app = Fastify({
-    logger:
-      env.NODE_ENV !== 'test'
-        ? { level: env.LOG_LEVEL }
-        : false,
+    logger: env.NODE_ENV !== 'test' ? { level: env.LOG_LEVEL } : false,
     trustProxy: true,
     bodyLimit: 16 * 1024, // 16 KB
   });
@@ -67,8 +65,7 @@ export async function buildApp(overrideEnv?: NodeJS.ProcessEnv) {
 
 // Only start the server when this file is run directly
 const isMain =
-  process.argv[1] != null &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  process.argv[1] != null && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
   const { app, env } = await buildApp();
