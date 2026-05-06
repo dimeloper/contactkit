@@ -52,7 +52,7 @@ export async function contactRoutes(
       // Turnstile verification
       const turnstileResult = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET);
       if (!turnstileResult.success) {
-        return reply.status(400).send({
+        return reply.status(403).send({
           error: 'CAPTCHA verification failed',
           codes: turnstileResult.errorCodes,
         });

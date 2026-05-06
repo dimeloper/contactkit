@@ -25,8 +25,8 @@ export interface ContactClientOptions {
 
 function statusToCode(status: number): ContactErrorCode {
   if (status === 400) return 'validation';
+  if (status === 403) return 'captcha_failed';
   if (status === 429) return 'rate_limited';
-  if (status >= 500) return 'server';
   return 'server';
 }
 
