@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   ci:
-    name: Lint, Build & Test
+    name: Typecheck, Lint, Build & Test
     runs-on: ubuntu-latest
 
     steps:
@@ -37,6 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r --if-present exec tsc --noEmit
 
       - name: Lint
         run: pnpm lint

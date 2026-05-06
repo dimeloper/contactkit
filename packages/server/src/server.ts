@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
+import { readFileSync } from 'fs';
 import { parseEnv } from './env.js';
 import { healthRoutes } from './routes/health.js';
 import { contactRoutes } from './routes/contact.js';
@@ -10,43 +11,52 @@ import { ResendMailer } from './mailer/resend.js';
 import { SmtpMailer } from './mailer/smtp.js';
 import type { Mailer } from './mailer/index.js';
 
+const pkg = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf-8'),
+) as { name: string; version: string };
+
 export async function buildApp(overrideEnv?: NodeJS.ProcessEnv) {
   const env = parseEnv(overrideEnv ?? process.env);
 
   const app = Fastify({
-    logger: env.NODE_ENV !== 'test',
+    logger:
+      env.NODE_ENV !== 'test'
+        ? { level: env.LOG_LEVEL }
+        : false,
+    trustProxy: true,
+    bodyLimit: 16 * 1024, // 16 KB
   });
 
   // CORS
-  await app.register(cors, {
-    origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(','),
-  });
+  const allowedOrigins =
+    env.ALLOWED_ORIGINS === '*' ? true : env.ALLOWED_ORIGINS.split(',').map((o) => o.trim());
+  await app.register(cors, { origin: allowedOrigins });
 
-  // Rate limiting
+  // Rate limiting (global defaults; route-level overrides applied per route)
   await app.register(rateLimit, {
-    max: 10,
-    timeWindow: '1 minute',
+    max: env.RATE_LIMIT_MAX,
+    timeWindow: env.RATE_LIMIT_WINDOW,
+    keyGenerator: (request) => request.ip,
   });
 
   // Mailer factory
   let mailer: Mailer;
-  if (env.MAILER === 'smtp') {
-    if (!env.SMTP_HOST || env.SMTP_PORT === undefined) {
-      throw new Error('SMTP_HOST and SMTP_PORT are required when MAILER=smtp');
-    }
+  if (env.EMAIL_PROVIDER === 'smtp') {
     mailer = new SmtpMailer({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
+      host: env.SMTP_HOST!,
+      port: env.SMTP_PORT!,
       secure: env.SMTP_SECURE ?? false,
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
     });
   } else {
-    if (!env.RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY is required when MAILER=resend');
-    }
-    mailer = new ResendMailer(env.RESEND_API_KEY);
+    mailer = new ResendMailer(env.RESEND_API_KEY!);
   }
+
+  // Root info endpoint
+  app.get('/', async (_request, reply) => {
+    return reply.send({ name: pkg.name, version: pkg.version });
+  });
 
   // Routes
   await app.register(healthRoutes);

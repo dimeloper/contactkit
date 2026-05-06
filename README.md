@@ -2,54 +2,53 @@
 
 Self-hostable contact form backend with a zero-dependency TypeScript SDK. Resend by default, SMTP optional, one-click Railway deploy.
 
+<!-- TODO: replace the template URL below after the first deploy -->
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/contactkit)
 [![CI](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml/badge.svg)](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Overview
+## Quickstart
 
-**contactkit** is a TypeScript pnpm monorepo containing two packages:
+### Browser
 
-| Package | Description |
-|---|---|
-| [`@contactkit/server`](packages/server) | Fastify backend that accepts contact-form submissions and sends email via [Resend](https://resend.com) (default) or SMTP |
-| [`@contactkit/client`](packages/client) | Tiny, framework-agnostic TypeScript SDK that posts to the server |
+```html
+<script type="module">
+  import { ContactClient } from 'https://cdn.jsdelivr.net/npm/@contactkit/client/dist/index.js';
 
-## Quick start
+  const client = new ContactClient({ baseUrl: 'https://contact.example.com' });
 
-### 1. Deploy the server to Railway
-
-Click the button above, or follow the [Railway deploy guide](https://docs.railway.app).
-
-Set the required environment variables (see [`packages/server/.env.example`](packages/server/.env.example)):
-
-```
-MAILER=resend              # or smtp
-RESEND_API_KEY=re_...      # required when MAILER=resend
-TO_EMAIL=you@example.com   # where contact submissions land
-FROM_EMAIL=noreply@...     # verified sender address
+  await client.send({
+    name: 'Jane',
+    email: 'jane@example.com',
+    message: 'Hello!',
+    subject: 'Inquiry',        // optional
+    turnstileToken: '...',     // optional
+  });
+</script>
 ```
 
-### 2. Install the client SDK
-
-```bash
-npm install @contactkit/client
-# or
-pnpm add @contactkit/client
-```
-
-### 3. Use the client
+### Node / Edge
 
 ```ts
-import { ContactKitClient } from '@contactkit/client';
+import { ContactClient, ContactError } from '@contactkit/client';
 
-const client = new ContactKitClient({ baseUrl: 'https://your-contactkit.railway.app' });
-
-await client.submit({
-  name: 'Alice',
-  email: 'alice@example.com',
-  message: 'Hello from the contact form!',
+const client = new ContactClient({
+  baseUrl: 'https://contact.example.com',
+  timeoutMs: 10_000, // optional, default 10 s
 });
+
+try {
+  const { id } = await client.send({
+    name: 'Jane',
+    email: 'jane@example.com',
+    message: 'Hello from Node!',
+  });
+  console.log('Sent, message id:', id);
+} catch (err) {
+  if (err instanceof ContactError) {
+    console.error(err.code, err.status); // e.g. "validation" 400
+  }
+}
 ```
 
 ## Monorepo layout
@@ -64,6 +63,91 @@ contactkit/
 ├── tsconfig.base.json
 ├── eslint.config.js
 └── prettier.config.js
+```
+
+## Environment variable reference
+
+See [`packages/server/.env.example`](packages/server/.env.example) for a copy-pasteable file.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `EMAIL_PROVIDER` | – | `resend` | `resend` or `smtp` |
+| `RESEND_API_KEY` | When `EMAIL_PROVIDER=resend` | – | Resend API key |
+| `SMTP_HOST` | When `EMAIL_PROVIDER=smtp` | – | SMTP server hostname |
+| `SMTP_PORT` | When `EMAIL_PROVIDER=smtp` | – | SMTP server port |
+| `SMTP_USER` | – | – | SMTP auth username |
+| `SMTP_PASS` | – | – | SMTP auth password |
+| `SMTP_SECURE` | – | `false` | Use TLS (`true`/`false`) |
+| `MAIL_TO` | ✓ | – | Recipient address for submissions |
+| `MAIL_FROM` | ✓ | – | Verified sender address |
+| `MAIL_SUBJECT_PREFIX` | – | `[Contact]` | Prefix prepended to every email subject |
+| `ALLOWED_ORIGINS` | – | `*` | Comma-separated allowed CORS origins |
+| `RATE_LIMIT_MAX` | – | `5` | Max requests per window |
+| `RATE_LIMIT_WINDOW` | – | `60000` | Rate-limit window in milliseconds |
+| `TURNSTILE_SECRET` | – | – | Cloudflare Turnstile secret key (omit to disable) |
+| `PORT` | – | `3000` | HTTP listen port |
+| `HOST` | – | `0.0.0.0` | HTTP listen host |
+| `NODE_ENV` | – | `production` | `development` / `production` / `test` |
+| `LOG_LEVEL` | – | `info` | `fatal` / `error` / `warn` / `info` / `debug` / `trace` |
+
+## Provider setup
+
+### Resend
+
+1. Create a free account at [resend.com](https://resend.com).
+2. Verify your sending domain (**Domains → Add domain** and add the DNS records shown).
+3. Create an API key under **API Keys** and set it as `RESEND_API_KEY`.
+4. Set `MAIL_FROM` to an address on your verified domain (e.g. `noreply@yourdomain.com`).
+
+### SMTP
+
+Common examples:
+
+```env
+# Gmail (App Password required — enable 2FA first)
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=you@gmail.com
+SMTP_PASS=your-app-password
+
+# Mailhog (local dev)
+EMAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURE=false
+```
+
+> **Note:** Additional providers (Postmark, SendGrid, Mailgun) are planned — see TODOs in `packages/server/src/mailer/`.
+
+## Self-host notes
+
+### CORS
+
+Set `ALLOWED_ORIGINS` to a comma-separated list of your front-end origins:
+
+```env
+ALLOWED_ORIGINS=https://www.example.com,https://example.com
+```
+
+Use `*` only in local development.
+
+### Rate limiting
+
+`RATE_LIMIT_MAX` requests are allowed per `RATE_LIMIT_WINDOW` milliseconds **per IP**. The server trusts `X-Forwarded-For` headers (Railway sets these automatically).
+
+### Turnstile (bot protection)
+
+1. Add a Cloudflare Turnstile widget to your form. Obtain the site key and secret key from the [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile).
+2. Set `TURNSTILE_SECRET` on the server. Once set, every submission must include a valid `turnstileToken`.
+3. Pass the token from your frontend:
+
+```ts
+await client.send({
+  name, email, message,
+  turnstileToken: turnstileWidgetResponse,
+});
 ```
 
 ## Development
@@ -84,21 +168,6 @@ pnpm build
 # Lint
 pnpm lint
 ```
-
-## Environment variables
-
-See [`packages/server/.env.example`](packages/server/.env.example) for the full list.
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `MAILER` | – | `resend` | `resend` or `smtp` |
-| `RESEND_API_KEY` | When `MAILER=resend` | – | Resend API key |
-| `SMTP_HOST` | When `MAILER=smtp` | – | SMTP server hostname |
-| `SMTP_PORT` | When `MAILER=smtp` | – | SMTP server port |
-| `TO_EMAIL` | ✓ | – | Recipient email address |
-| `FROM_EMAIL` | – | `noreply@example.com` | Sender email address |
-| `TURNSTILE_SECRET` | – | – | Cloudflare Turnstile secret (omit to disable) |
-| `CORS_ORIGIN` | – | `*` | Comma-separated allowed origins |
 
 ## License
 

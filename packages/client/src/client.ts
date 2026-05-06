@@ -1,49 +1,85 @@
-import { ContactKitError, NetworkError } from './errors.js';
+import { ContactError, NetworkError } from './errors.js';
+import type { ContactErrorCode } from './errors.js';
 
-export interface ContactPayload {
+export interface ContactInput {
   name: string;
   email: string;
   message: string;
-  /** Optional Cloudflare Turnstile token */
+  subject?: string;
   turnstileToken?: string;
 }
 
-export interface ContactKitOptions {
-  /** Base URL of the @contactkit/server instance, e.g. "https://contactkit.example.com" */
-  baseUrl: string;
-  /** Optional fetch implementation for environments without native fetch (e.g. Node <18) */
-  fetchFn?: typeof fetch;
+export interface ContactResponse {
+  ok: boolean;
+  id: string;
 }
 
-export class ContactKitClient {
-  private readonly baseUrl: string;
-  private readonly fetchFn: typeof fetch;
+export interface ContactClientOptions {
+  /** Base URL of the @contactkit/server instance, e.g. "https://contact.example.com" */
+  baseUrl: string;
+  /** Optional fetch implementation; defaults to global fetch */
+  fetch?: typeof globalThis.fetch;
+  /** Request timeout in milliseconds; defaults to 10000 */
+  timeoutMs?: number;
+}
 
-  constructor(options: ContactKitOptions) {
+function statusToCode(status: number): ContactErrorCode {
+  if (status === 400) return 'validation';
+  if (status === 429) return 'rate_limited';
+  if (status >= 500) return 'server';
+  return 'server';
+}
+
+export class ContactClient {
+  private readonly baseUrl: string;
+  private readonly fetchFn: typeof globalThis.fetch;
+  private readonly timeoutMs: number;
+
+  constructor(options: ContactClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.fetchFn = options.fetchFn ?? fetch;
+    this.fetchFn = options.fetch ?? globalThis.fetch;
+    this.timeoutMs = options.timeoutMs ?? 10_000;
   }
 
-  async submit(payload: ContactPayload): Promise<void> {
-    let response: Response;
+  async send(input: ContactInput): Promise<ContactResponse> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+    let response: Response;
     try {
       response = await this.fetchFn(`${this.baseUrl}/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(input),
+        signal: controller.signal,
       });
     } catch (err) {
+      clearTimeout(timer);
+      const isAbort =
+        err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
+      if (isAbort) {
+        throw new ContactError('Request timed out', 0, 'network');
+      }
       throw new NetworkError('Failed to reach the ContactKit server', err);
+    } finally {
+      clearTimeout(timer);
     }
 
     if (!response.ok) {
-      const body = await response.json().catch(() => undefined);
-      throw new ContactKitError(
+      let code: ContactErrorCode = statusToCode(response.status);
+      try {
+        const body = (await response.json()) as { code?: ContactErrorCode };
+        if (body.code) code = body.code;
+      } catch {
+        // ignore parse errors
+      }
+      throw new ContactError(
         `ContactKit server responded with ${response.status}`,
         response.status,
-        body,
+        code,
       );
     }
+
+    return response.json() as Promise<ContactResponse>;
   }
 }

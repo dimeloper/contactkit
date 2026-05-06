@@ -1,15 +1,16 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+const baseEnvSchema = z.object({
   PORT: z.coerce.number().default(3000),
   HOST: z.string().default('0.0.0.0'),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
-  // CORS
-  CORS_ORIGIN: z.string().default('*'),
+  // CORS — comma-separated list of allowed origins, or "*" for all
+  ALLOWED_ORIGINS: z.string().default('*'),
 
-  // Mailer selection
-  MAILER: z.enum(['resend', 'smtp']).default('resend'),
+  // Email provider selection
+  EMAIL_PROVIDER: z.enum(['resend', 'smtp']).default('resend'),
 
   // Resend
   RESEND_API_KEY: z.string().optional(),
@@ -25,20 +26,38 @@ const envSchema = z.object({
     .transform((v) => v === 'true'),
 
   // Email addressing
-  FROM_EMAIL: z.string().email().default('noreply@example.com'),
-  TO_EMAIL: z.string().email(),
+  MAIL_FROM: z.string().email(),
+  MAIL_TO: z.string().email(),
+  MAIL_SUBJECT_PREFIX: z.string().default('[Contact]'),
+
+  // Rate limiting
+  RATE_LIMIT_MAX: z.coerce.number().default(5),
+  RATE_LIMIT_WINDOW: z.coerce.number().default(60000),
 
   // Cloudflare Turnstile (optional)
   TURNSTILE_SECRET: z.string().optional(),
 });
 
-export type Env = z.infer<typeof envSchema>;
+export type Env = z.infer<typeof baseEnvSchema>;
 
 export function parseEnv(raw: NodeJS.ProcessEnv = process.env): Env {
-  const result = envSchema.safeParse(raw);
-  if (!result.success) {
-    const formatted = result.error.format();
+  const baseResult = baseEnvSchema.safeParse(raw);
+  if (!baseResult.success) {
+    const formatted = baseResult.error.format();
     throw new Error(`Invalid environment variables:\n${JSON.stringify(formatted, null, 2)}`);
   }
-  return result.data;
+
+  const env = baseResult.data;
+
+  // Conditional validation
+  if (env.EMAIL_PROVIDER === 'resend' && !env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
+  }
+  if (env.EMAIL_PROVIDER === 'smtp') {
+    if (!env.SMTP_HOST) throw new Error('SMTP_HOST is required when EMAIL_PROVIDER=smtp');
+    if (env.SMTP_PORT === undefined)
+      throw new Error('SMTP_PORT is required when EMAIL_PROVIDER=smtp');
+  }
+
+  return env;
 }

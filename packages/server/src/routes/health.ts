@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 
+const startTime = Date.now();
+
 export async function healthRoutes(app: FastifyInstance): Promise<void> {
   app.get('/health', async (_request, reply) => {
-    return reply.send({ status: 'ok', timestamp: new Date().toISOString() });
+    return reply.send({ status: 'ok', uptime: Math.floor((Date.now() - startTime) / 1000) });
   });
 }

@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import type { Mailer, MailOptions } from './index.js';
+import type { Mailer, MailInput } from './index.js';
 
 export interface SmtpConfig {
   host: string;
@@ -24,13 +24,16 @@ export class SmtpMailer implements Mailer {
     });
   }
 
-  async send(options: MailOptions): Promise<void> {
-    await this.transporter.sendMail({
-      from: options.from,
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
+  async send(input: MailInput): Promise<{ id?: string }> {
+    const info = await this.transporter.sendMail({
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      replyTo: input.replyTo,
     });
+
+    return { id: (info as { messageId?: string }).messageId };
   }
 }
