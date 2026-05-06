@@ -1,13 +1,113 @@
 # contactkit
 
-Self-hostable contact form backend with a zero-dependency TypeScript SDK. Resend by default, SMTP optional, one-click Railway deploy.
+Self-hostable contact form backend with a zero-dependency TypeScript SDK.
+Default email provider is Resend, SMTP is supported, and Railway deployment steps are included below.
 
-<!-- TODO: replace the template URL below after the first deploy -->
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/contactkit)
 [![CI](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml/badge.svg)](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Quickstart
+## Quickstart (Run this repo locally)
+
+This gets the API running locally and verifies it end-to-end.
+
+### 1. Prerequisites
+
+- Node.js 20+
+- pnpm 9+
+
+```bash
+corepack enable
+corepack prepare pnpm@9.15.4 --activate
+```
+
+### 2. Install dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Configure environment variables
+
+```bash
+cp packages/server/.env.example packages/server/.env
+```
+
+Set the minimum required variables in `packages/server/.env`:
+
+Resend example:
+
+```env
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxx
+MAIL_TO=you@example.com
+MAIL_FROM=noreply@yourdomain.com
+```
+
+SMTP (Mailhog/local) example:
+
+```env
+EMAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_SECURE=false
+MAIL_TO=you@example.com
+MAIL_FROM=noreply@example.com
+```
+
+### 4. Start the server
+
+```bash
+pnpm --filter @contactkit/server dev
+```
+
+By default, the server starts at `http://localhost:3000`.
+
+### 5. Smoke test
+
+Health endpoint:
+
+```bash
+curl -s http://localhost:3000/health
+```
+
+Contact endpoint (works as-is when `TURNSTILE_SECRET` is not set):
+
+```bash
+curl -s -X POST http://localhost:3000/contact \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Jane",
+    "email": "jane@example.com",
+    "message": "Hello from curl"
+  }'
+```
+
+## Deploy on Railway
+
+### Option A: Deploy button
+
+Use the button at the top of this README if the public template is available.
+If it is unavailable, use Option B.
+
+### Option B: Manual deploy
+
+1. Create a new project in Railway and connect this repository.
+2. Set the root directory to `packages/server`.
+3. Add environment variables in Railway:
+   - Required: `MAIL_TO`, `MAIL_FROM`
+   - Provider-specific:
+     - Resend: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY=...`
+     - SMTP: `EMAIL_PROVIDER=smtp`, `SMTP_HOST`, `SMTP_PORT`, optional `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`
+   - Recommended: `ALLOWED_ORIGINS=https://your-frontend-domain.com`
+4. Deploy the service.
+5. Verify the deployment:
+
+```bash
+curl -s https://your-app.up.railway.app/health
+```
+
+## SDK Quickstart
 
 ### Browser
 
@@ -51,121 +151,20 @@ try {
 }
 ```
 
-## Monorepo layout
+## Configuration at a glance
 
-```
-contactkit/
-├── packages/
-│   ├── server/            # @contactkit/server — Fastify backend
-│   └── client/            # @contactkit/client — TypeScript SDK
-├── .github/workflows/ci.yml
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-├── eslint.config.js
-└── prettier.config.js
-```
+- Full env reference: [packages/server/.env.example](packages/server/.env.example)
+- Required in all environments: `MAIL_TO`, `MAIL_FROM`
+- Provider selection: `EMAIL_PROVIDER=resend` (default) or `EMAIL_PROVIDER=smtp`
+- Resend requires: `RESEND_API_KEY`
+- SMTP requires: `SMTP_HOST`, `SMTP_PORT` (plus optional auth and TLS flags)
+- Security/ops knobs: `ALLOWED_ORIGINS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`, optional `TURNSTILE_SECRET`
 
-## Environment variable reference
-
-See [`packages/server/.env.example`](packages/server/.env.example) for a copy-pasteable file.
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `EMAIL_PROVIDER` | – | `resend` | `resend` or `smtp` |
-| `RESEND_API_KEY` | When `EMAIL_PROVIDER=resend` | – | Resend API key |
-| `SMTP_HOST` | When `EMAIL_PROVIDER=smtp` | – | SMTP server hostname |
-| `SMTP_PORT` | When `EMAIL_PROVIDER=smtp` | – | SMTP server port |
-| `SMTP_USER` | – | – | SMTP auth username |
-| `SMTP_PASS` | – | – | SMTP auth password |
-| `SMTP_SECURE` | – | `false` | Use TLS (`true`/`false`) |
-| `MAIL_TO` | ✓ | – | Recipient address for submissions |
-| `MAIL_FROM` | ✓ | – | Verified sender address |
-| `MAIL_SUBJECT_PREFIX` | – | `[Contact]` | Prefix prepended to every email subject |
-| `ALLOWED_ORIGINS` | – | `*` | Comma-separated allowed CORS origins |
-| `RATE_LIMIT_MAX` | – | `5` | Max requests per window |
-| `RATE_LIMIT_WINDOW` | – | `60000` | Rate-limit window in milliseconds |
-| `TURNSTILE_SECRET` | – | – | Cloudflare Turnstile secret key (omit to disable) |
-| `PORT` | – | `3000` | HTTP listen port |
-| `HOST` | – | `0.0.0.0` | HTTP listen host |
-| `NODE_ENV` | – | `production` | `development` / `production` / `test` |
-| `LOG_LEVEL` | – | `info` | `fatal` / `error` / `warn` / `info` / `debug` / `trace` |
-
-## Provider setup
-
-### Resend
-
-1. Create a free account at [resend.com](https://resend.com).
-2. Verify your sending domain (**Domains → Add domain** and add the DNS records shown).
-3. Create an API key under **API Keys** and set it as `RESEND_API_KEY`.
-4. Set `MAIL_FROM` to an address on your verified domain (e.g. `noreply@yourdomain.com`).
-
-### SMTP
-
-Common examples:
-
-```env
-# Gmail (App Password required — enable 2FA first)
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=you@gmail.com
-SMTP_PASS=your-app-password
-
-# Mailhog (local dev)
-EMAIL_PROVIDER=smtp
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_SECURE=false
-```
-
-> **Note:** Additional providers (Postmark, SendGrid, Mailgun) are planned — see TODOs in `packages/server/src/mailer/`.
-
-## Self-host notes
-
-### CORS
-
-Set `ALLOWED_ORIGINS` to a comma-separated list of your front-end origins:
-
-```env
-ALLOWED_ORIGINS=https://www.example.com,https://example.com
-```
-
-Use `*` only in local development.
-
-### Rate limiting
-
-`RATE_LIMIT_MAX` requests are allowed per `RATE_LIMIT_WINDOW` milliseconds **per IP**. The server trusts `X-Forwarded-For` headers (Railway sets these automatically).
-
-### Turnstile (bot protection)
-
-1. Add a Cloudflare Turnstile widget to your form. Obtain the site key and secret key from the [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile).
-2. Set `TURNSTILE_SECRET` on the server. Once set, every submission must include a valid `turnstileToken`.
-3. Pass the token from your frontend:
-
-```ts
-await client.send({
-  name, email, message,
-  turnstileToken: turnstileWidgetResponse,
-});
-```
-
-## Development
+## Useful commands
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Run the server in dev mode
-pnpm --filter @contactkit/server dev
-
-# Run tests
 pnpm test
-
-# Build all packages
 pnpm build
-
-# Lint
 pnpm lint
 ```
 
