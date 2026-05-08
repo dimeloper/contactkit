@@ -3,7 +3,7 @@
 Self-hostable contact form backend with a zero-dependency TypeScript SDK.
 Default email provider is Resend, SMTP is supported, and Railway deployment steps are included below.
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/contactkit)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/o7vVk1?referralCode=dimeloper)
 [![CI](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml/badge.svg)](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
