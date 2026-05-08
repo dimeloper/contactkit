@@ -85,16 +85,14 @@ curl -s -X POST http://localhost:3000/contact \
 
 ## Deploy on Railway
 
-### Option A: Deploy button
+### Option A: Deploy button (recommended)
 
-Use the button at the top of this README if the public template is available.
-If it is unavailable, use Option B.
+Click the **Deploy on Railway** button at the top of this README — it provisions everything automatically.
 
 ### Option B: Manual deploy
 
 1. Create a new project in Railway and connect this repository.
-2. Set the root directory to `packages/server`.
-3. Add environment variables in Railway:
+2. Add environment variables in Railway:
    - Required: `MAIL_TO`, `MAIL_FROM`
    - Provider-specific:
      - Resend: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY=...`
