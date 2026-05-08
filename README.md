@@ -98,8 +98,8 @@ Click the **Deploy on Railway** button at the top of this README — it provisio
      - Resend: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY=...`
      - SMTP: `EMAIL_PROVIDER=smtp`, `SMTP_HOST`, `SMTP_PORT`, optional `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`
    - Recommended: `ALLOWED_ORIGINS=https://your-frontend-domain.com`
-4. Deploy the service.
-5. Verify the deployment:
+3. Deploy the service.
+4. Verify the deployment:
 
 ```bash
 curl -s https://your-app.up.railway.app/health
