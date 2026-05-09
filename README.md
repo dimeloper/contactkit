@@ -5,6 +5,7 @@ Default email provider is Resend, SMTP is supported, and Railway deployment step
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/contactkit?referralCode=dimeloper)
 [![CI](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml/badge.svg)](https://github.com/dimeloper/contactkit/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@contactkit/client)](https://www.npmjs.com/package/@contactkit/client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Quickstart (Run this repo locally)
